@@ -1,7 +1,8 @@
 import { Disclosure, DisclosureButton, DisclosurePanel, Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react'
 import { Bars3Icon, BellIcon, UserIcon, XMarkIcon } from '@heroicons/react/24/outline'
-import { Outlet, NavLink } from "react-router-dom"
+import { Outlet, NavLink, Navigate } from "react-router-dom"
 import { userStateContext } from '../contexts/ContextProvider'
+
 
 // const user = {
 const navigation = [
@@ -21,7 +22,10 @@ function classNames(...classes) {
 
 export default function DefaultLayout() {
 
-  const { currentUser} = userStateContext();
+  const { currentUser, userToken} = userStateContext();
+  if (!userToken) {
+    return <Navigate to="/login" />
+  }
 
   const logout = (ev) => {
     ev.preventDefault()
