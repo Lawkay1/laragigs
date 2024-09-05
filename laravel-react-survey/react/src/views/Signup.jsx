@@ -15,14 +15,16 @@
 import { useState } from "react";
 import axiosClient from "../axios.js";
 import { Link } from "react-router-dom";
+import { userStateContext } from "../contexts/ContextProvider.jsx";
 export default function Signup() {
+    const {setCurrentUser, setUserToken } = userStateContext();
     const [fullname, setFullname] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState({__html:''});
     const onSubmit = (ev) => {
-        ev.preventDefault();
+        ev.preventDefault(); 
         setError({__html:''});
 
         axiosClient.post('/signup', {
@@ -32,6 +34,8 @@ export default function Signup() {
             password_confirmation:confirmPassword
 
     }).then(({data}) => {
+      setCurrentUser(data.user)
+      setUserToken(data.token)
       console.log(data)
     }).catch((error) => {
       if (error.response) {
@@ -71,7 +75,8 @@ export default function Signup() {
           <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
             <form onSubmit={onSubmit} action="#" method="POST" className="space-y-6">
             <div>
-                <label htmlFor="fullName" className="block text-sm font-medium leading-6 text-gray-900">
+                <label htmlFor="fullname" className="block text-sm font-medium leading-6 text-gray-900">
+                  {fullname}
                   Full Name
                 </label>
                 <div className="mt-2">
@@ -80,6 +85,8 @@ export default function Signup() {
                     name="fullname"
                     type="text"
                     required
+                    value = {fullname}
+                    onChange = {ev=> setFullname(ev.target.value)}
                     placeholder="Full Name"
                     className="block w-full  border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                   />
@@ -95,6 +102,9 @@ export default function Signup() {
                     name="email"
                     type="email"
                     required
+                    value = {email}
+                    placeholder="Email Address"
+                    onChange = {ev=> setEmail(ev.target.value)}
                     autoComplete="email"
                     className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                   />
@@ -118,6 +128,9 @@ export default function Signup() {
                     name="password"
                     type="password"
                     required
+                    value = {password}
+                    placeholder="Password"
+                    onChange = {ev=> setPassword(ev.target.value)}
                     autoComplete="current-password"
                     className="block w-full border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                   />
@@ -140,7 +153,10 @@ export default function Signup() {
                     id="password-confirmation"
                     name="password_confirmation"
                     type="password"
+                    value = {confirmPassword}
+                    onChange = {ev=> setConfirmPassword(ev.target.value)}
                     required
+                    placeholder = "Confirm Password"
                     autoComplete="current-password"
                     className="block w-full border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                   />

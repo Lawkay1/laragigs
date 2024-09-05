@@ -2,6 +2,7 @@ import { Disclosure, DisclosureButton, DisclosurePanel, Menu, MenuButton, MenuIt
 import { Bars3Icon, BellIcon, UserIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { Outlet, NavLink, Navigate } from "react-router-dom"
 import { userStateContext } from '../contexts/ContextProvider'
+import axiosClient from '../axios'
 
 
 // const user = {
@@ -22,13 +23,18 @@ function classNames(...classes) {
 
 export default function DefaultLayout() {
 
-  const { currentUser, userToken} = userStateContext();
+  const { currentUser, userToken, setCurrentUser, setUserToken} = userStateContext();
   if (!userToken) {
     return <Navigate to="/login" />
   }
 
   const logout = (ev) => {
     ev.preventDefault()
+    axiosClient.get('/logout')
+    .then(res => {
+      setCurrentUser({})
+      setUserToken(null)
+    })
     console.log('logout')
   }
   return (
