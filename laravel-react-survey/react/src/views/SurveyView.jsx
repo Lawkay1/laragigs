@@ -1,9 +1,16 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import PageComponent from "../components/PageComponent";
 import TButton from "../components/core/TButton";
-import { PhotoIcon } from "@heroicons/react/24/outline";
-
+import { PhotoIcon, TrashIcon,  LinkIcon } from "@heroicons/react/24/outline";
+import axiosClient from "../axios.js";
+import { useNavigate, useParams } from "react-router-dom";
+import SurveyQuestions from "../components/SurveyQuestions.jsx";
+import { userStateContext } from "../contexts/ContextProvider";
 export default function SurveyView(){
+    const { showToast } = userStateContext()
+    const navigate = useNavigate()
+    const { id } = useParams();
+    const [loading, setLoading] = useState(false);
     const [survey, setSurvey] = useState({
         title: "",
         slug: "",
@@ -15,20 +22,104 @@ export default function SurveyView(){
         image: null,
 
     });
-    const onImageChoose =() => {
-        console.log('On image choose');
+
+    const [error, setError] = useState('')
+    const onImageChoose =(ev) => {
+        const file = ev.target.files[0];
+        const reader = new FileReader();
+
+        reader.onload = () => {
+            setSurvey({...survey, image: file, image_url: reader.result}) // image_url: reader.result
+            ev.target.value = ""
+        }
+        
+        reader.readAsDataURL(file);
     }
 
 
     const onSubmit = (ev) => {
         ev.preventDefault();
-        console.log('On submit');
+        
+        const payload = { ...survey};
+        if (payload.image) {
+            payload.image = payload.image_url;
+        }
+        delete payload.image_url;
+        let res = null;
+
+        if (id) {
+            res = axiosClient.put(`/survey/${id}`, payload)
+        } else { 
+            res = axiosClient.post('/survey', payload)
+        }
+        res
+        .then((res) =>{
+            console.log(res);
+            navigate('/surveys')
+            if(id){
+            showToast('The survey was updated');
+            }else {
+                showToast('The survey was created');
+            }
+        })
+        .catch((err) => {
+            console.log(err && err.response)
+            if (err && err.response) {
+                console.log('i am here')
+                setError( err.response.data.message);
+            }
+        });
+
+    };
+
+    function onQuestionsChange(questions) {
+         setSurvey({
+            ...survey,
+            questions
+        })
     }
+
+    const onDelete = ()=> {
+
+    }
+
+    useEffect(() => {
+        if (id) {
+            setLoading(true)
+            axiosClient.get(`/survey/${id}`).then(({ data }) => {
+                setSurvey(data.data)
+                setLoading(false)
+            })
+        }
+    }, [])
     return (
-        <PageComponent title="Create new Survey">
-            <form action="#" method="POST" onSubmit={onSubmit}>
+        <PageComponent title={!id ? "Create new Survey" : "Update Survey" }
+        
+        buttons={
+            <div className = "flex gap 5">
+            <TButton color="green" href={`/survey/public/${survey.slug}`}>
+                <LinkIcon className="w-5 h-5"/>
+                Public Link
+            </TButton>
+
+            <TButton color="red" onClick={onDelete}>
+                <TrashIcon className="w-5 h-5"/>
+                Delete
+            </TButton>
+            
+            </div>
+            }>
+            
+           {loading && <div>Loading...</div>}
+           {!loading && <form action="#" method="POST" onSubmit={onSubmit}>
                <div className="shadow sm:overflow-hidden sm:rounded-md">
+                
                 <div className = "space-y-6 bg-white px-4 py-6 sm:p-6">
+                {error && <div className="bg-red-500 text-white py-2 px-3 rounded-lg">
+                    Here
+                    { error }
+                    </div>
+                }
                 {/* Image */}
                 <div>
                     <label className = "block text-sm font-medium text-gray-700">
@@ -61,6 +152,7 @@ export default function SurveyView(){
                             Change
                     
                             </button>
+                        </div>
                             </div>
 
                             {/* Title */}
@@ -81,7 +173,7 @@ export default function SurveyView(){
                                     onChange={(ev) => setSurvey({...survey, title: ev.target.value})}
                                     />
                                 {/* Title */}
-
+                            </div>
                                 {/* Description */}
                                 <div className = "col-span-6 sm:col-span-3">
                                     <label 
@@ -100,7 +192,7 @@ export default function SurveyView(){
                                         onChange={(ev) => setSurvey({...survey, description: ev.target.value})}
                                         />
                                     {/* Description */}
-
+                                </div>
                                     {/* Expire Date */}
                                     <div className = "col-span-6 sm:col-span-3">
                                         <label 
@@ -118,7 +210,7 @@ export default function SurveyView(){
                                             onChange={(ev) => setSurvey({...survey, expire_date: ev.target.value})}
                                             />
                                         {/* Expire Date */}
-
+                                    </div>
                                         {/* Active          */}
                                         <div className = "flex items-start"> 
                                             <div className = "flex h-5 items-center">
@@ -146,21 +238,23 @@ export default function SurveyView(){
                                                     
                                                     {/* Active          */}
 
+                                                    <SurveyQuestions questions={survey.questions} onQuestionsChange={onQuestionsChange}/>
+
                     
                                                 </div>
-                                                <div className = "px-4 py-3 text-right sm:px-6">
-                                                    <TButton>
+                                                <div className = "bg-gray-50 px-4 py-3 text-right sm:px-6">
+                                                    <TButton color="green">
                                                         Save
                                                     </TButton>
                                                 </div>
                  </div>
-                </div>
-               </div>
-              </div>
-            </div>
+                
+                
+              
+   
            
             </form>
-            
+            }
         </PageComponent>
     )
 }

@@ -6,14 +6,20 @@ use Illuminate\Http\Request;
 use App\Models\Survey;
 use App\Http\Requests\SurveyStoreRequest;
 use App\Http\Requests\SurveyUpdateRequest;
+use App\Http\Requests\StoreSurveyAnswerRequest;
 use App\Http\Resources\SurveyResource;
 use App\Http\Resources\SurveyCollection;
 use Illuminate\Support\Str;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\File;
 use App\Models\SurveyQuestion;
+use App\Models\SurveyAnswer;
+use App\Models\SurveyQuestionAnswer;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rules\Enum;
+use Illuminate\Support\Facades\Storage;
+use App\Enums\QuestionTypeEnum;
+use Illuminate\Validation\Rule;
 
 class SurveyController extends Controller
 {
@@ -25,7 +31,7 @@ class SurveyController extends Controller
         $user = $request->user();
         return SurveyResource::collection(Survey::where('user_id', $user->id)
         ->orderBy('created_at', 'desc')
-        ->paginate(10)
+        ->paginate(2)
     );
     }
 
@@ -70,7 +76,7 @@ class SurveyController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(SurveyUpdateRequest $request, string $id)
+    public function update(SurveyUpdateRequest $request, Survey $survey)
     {
         $data = $request->validated();
         if (isset($data['image'])) {
@@ -78,7 +84,7 @@ class SurveyController extends Controller
             $data['image'] = $relativePath;
         }
         // If there is an old image, delete it
-        if ($survey->$image){
+        if ($survey->image){
             $absolutePath = public_path('images/' . $survey->image);
             File::delete($absolutePath);
         }
@@ -140,11 +146,10 @@ class SurveyController extends Controller
     {
         // Check if image is valid base64 string
         if (preg_match('/^data:image\/(\w+);base64,/', $image, $type)) {
-            // Take out the base64 encoded text without mime
+            // Take out the base64 encoded text without mime type
             $image = substr($image, strpos($image, ',') + 1);
-
             // Get file extension
-            $type = strtolower($type[1]);
+            $type = strtolower($type[1]); // jpg, png, gif
 
             // Check if file is an image
             if (!in_array($type, ['jpg', 'jpeg', 'gif', 'png'])) {
@@ -157,7 +162,7 @@ class SurveyController extends Controller
                 throw new \Exception('base64_decode failed');
             }
         } else {
-            throw new \Exception('did not find valid base64 string');
+            throw new \Exception('did not match data URI with image data');
         }
 
         $dir = 'images/';
@@ -165,14 +170,51 @@ class SurveyController extends Controller
         $absolutePath = public_path($dir);
         $relativePath = $dir . $file;
         if (!File::exists($absolutePath)) {
-            File:makeDirectory($absolutePath, 0755, true);
+            File::makeDirectory($absolutePath, 0755, true);
         }
-
         file_put_contents($relativePath, $image);
 
         return $relativePath;
-
     }
+
+
+    // private function saveImage($image)
+    // {
+    //     // Check if image is valid base64 string
+    //     if (preg_match('/^data:image\/(\w+);base64,/', $image, $type)) {
+    //         // Take out the base64 encoded text without mime
+    //         $image = substr($image, strpos($image, ',') + 1);
+
+    //         // Get file extension
+    //         $type = strtolower($type[1]);
+
+    //         // Check if file is an image
+    //         if (!in_array($type, ['jpg', 'jpeg', 'gif', 'png'])) {
+    //             throw new \Exception('invalid image type');
+    //         }
+    //         $image = str_replace(' ', '+', $image);
+    //         $image = base64_decode($image);
+
+    //         if ($image === false) {
+    //             throw new \Exception('base64_decode failed');
+    //         }
+    //     } else {
+    //         throw new \Exception('did not find valid base64 string');
+    //     }
+
+    //     $dir = 'images/';
+    //     $file = Str::random() . '.' . $type;
+    //     $absolutePath = public_path($dir);
+    //     $relativePath = $dir . $file;
+    //     if (!File::exists($absolutePath)) {
+    //         File:makeDirectory($absolutePath, 0755, true);
+    //     }
+
+    //     file_put_contents($relativePath, $image);
+
+    //     return $relativePath;
+
+    // }
 
     private function createQuestion($data)
     {   
@@ -182,7 +224,14 @@ class SurveyController extends Controller
         $validator = \Validator::make($data, [
             'question' => 'required|string|',
             'description' => 'nullable|string',
-            'type' => ['rquired', new Enum(QuestionTypeEnum::class)],
+            'type' => ['required', Rule::in([
+                // 'text', 'checkbox'
+                QuestionTypeEnum::Text->value,
+                QuestionTypeEnum::Select->value,
+                QuestionTypeEnum::Checkbox->value,
+                QuestionTypeEnum::Radio->value,
+                QuestionTypeEnum::Textarea->value
+        ])],
             'data' => 'present',
             'survey_id' => 'exists:App\Models\Survey,id',
             
@@ -198,13 +247,56 @@ class SurveyController extends Controller
         'id' => 'exists:App\Models\SurveyQuestion,id',
         'question' => 'required|string|',
         'description' => 'nullable|string',
-        'type' => ['rquired', new Enum(QuestionTypeEnum::class)],
+        'type' => ['required', new Enum(QuestionTypeEnum::class)],
         'data' => 'present',       
         
     ]);
 
     return $question->update($validator->validated());
     }
+
+
+    public function getBySlug(Survey $survey)
+    {
+        if (!$survey->status) {
+            return response("", 404);
+        }
+
+        $currentDate = new \DateTime();
+        $expireDate = new \DateTime($survey->expire_date);
+        if ($expireDate < $currentDate) {
+            return response("", 404);
+        }
+
+        return new SurveyResource($survey);
+
+    }
+
+    public function StoreAnswer(StoreSurveyAnswerRequest $request, Survey $survey)
+    {
+        $validated = $request->validated();
+        $surveyAnswer = SurveyAnswer::create([
+            'survey_id' => $survey->id,
+            'start_date' => date('Y-m-d H:i:s'),
+            'end_date' => date('Y-m-d H:i:s'),
+        ]);
+
+        foreach ($validated['answers'] as $questionId=> $answer) {
+            $question = SurveyQuestion::where(['id'=>$questionId, 'survey_id'=>$survey->id])->get();
+            if (!$question) {
+                return response("Invalid question ID: \"$questionId\"", 400);
+        }
+        $data = [
+            'survey_question_id' => $questionId,
+            'survey_answer_id' => $surveyAnswer->id,
+            'answer' => is_array($answer) ? json_encode($answer) : $answer
+        ];
+
+        $questionAnswer = SurveyQuestionAnswer::create($data);
+    }
+
+        return response("", 201);
+}
 }
 
 

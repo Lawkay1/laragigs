@@ -11,12 +11,31 @@ class SurveyUpdateRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        $survey = this->route('survey');
+
+         // Log the survey and user to see what's happening
+    \Log::info('Survey:', ['survey' => $this->route('survey')]);
+    \Log::info('User:', ['user' => $this->user()]);
+       
+        $survey = $this->route('survey');
         if ($this->user()->id !== $survey->user_id) {
            return false; 
         }
         return true;
     }
+
+//     public function authorize(): bool
+//     {
+//     // Fetch the survey instance from the route parameter
+//     $surveyId = $this->route('survey');
+//     $survey = Survey::find($surveyId);
+
+//     // Check if the survey exists and if the authenticated user is the owner
+//     if ($survey && $this->user()->id === $survey->user_id) {
+//         return true;
+//     }
+
+//     return false;
+// }
 
     /**
      * Get the validation rules that apply to the request.

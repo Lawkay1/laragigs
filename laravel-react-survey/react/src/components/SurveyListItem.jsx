@@ -28,7 +28,7 @@ export default function SurveyListItem({survey, onDeleteClick}) {
                     </TButton>
 
                     {survey.id &&(
-                    <TButton onDeleteClick={onDeleteClick} circle link color="red">
+                    <TButton onDeleteClick={ev => onDeleteClick(survey.id)} circle link color="red">
                     <TrashIcon className="h-5 w-5"/>
                     </TButton>)}
                 </div>

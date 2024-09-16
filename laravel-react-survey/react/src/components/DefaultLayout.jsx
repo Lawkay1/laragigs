@@ -3,6 +3,9 @@ import { Bars3Icon, BellIcon, UserIcon, XMarkIcon } from '@heroicons/react/24/ou
 import { Outlet, NavLink, Navigate } from "react-router-dom"
 import { userStateContext } from '../contexts/ContextProvider'
 import axiosClient from '../axios'
+import { useEffect } from 'react'
+import Toast from './Toast'
+
 
 
 // const user = {
@@ -36,7 +39,15 @@ export default function DefaultLayout() {
       setUserToken(null)
     })
     console.log('logout')
-  }
+  };
+
+  useEffect(()=> {
+    axiosClient.get('/me')
+    .then(({data}) => {
+      setCurrentUser(data)
+    })
+
+  }, [])
   return (
     <>
       {/*
@@ -181,7 +192,7 @@ export default function DefaultLayout() {
         </Disclosure>
         <Outlet /> 
 
-       
+       <Toast></Toast>
       </div>
     </>
   )
